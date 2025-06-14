@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>دومر رن المطور</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body { 
+      font-family: 'Cairo', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      overflow: hidden;
+      position: relative;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    
+    .game-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      background: #fff;
+    }
+    
+    #gameCanvas { 
+      display: block;
+      background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 70%, #228B22 100%);
+    }
+    
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      font-size: 28px;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      font-weight: 600;
+    }
+    
+    #overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    #startScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: #fff;
+      flex-direction: column;
+      font-weight: 600;
+      opacity: 1;
+      transition: all 0.3s ease;
+    }
+    
+    #startScreen.hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+    
+    .game-title {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      background: linear-gradient(45deg, #FFD700, #FFA500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .game-subtitle {
+      font-size: 18px;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+    
+    .controls-info {
+      font-size: 14px;
+      margin-bottom: 40px;
+      text-align: center;
+      opacity: 0.8;
+      line-height: 1.6;
+    }
+    
+    button {
+      padding: 15px 30px;
+      font-size: 20px;
+      font-weight: 600;
+      font-family: 'Cairo', sans-serif;
+      cursor: pointer;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+      color: white;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(255,107,107,0.4);
+      margin: 10px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(255,107,107,0.6);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      opacity: 0;
+      visibility: hidden;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      z-index: 10;
+      transition: all 0.3s ease;
+    }
+    
+    #hud.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .hud-item {
+      background: rgba(255,255,255,0.9);
+      padding: 10px 20px;
+      border-radius: 25px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      backdrop-filter: blur(10px);
+    }
+    
+    .level-indicator {
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <canvas id="gameCanvas" width="1000" height="500"></canvas>
+    
+    <div id="startScreen">
+      <div class="game-title">🏃‍♂️ دومر رن</div>
+      <div class="game-subtitle">مغامرة الجري اللانهائية</div>
+      <div class="controls-info">
+        🎮 التحكم:<br>
+        مسطرة المسافة أو السهم للأعلى = القفز<br>
+        اضغط مرتين للقفز المزدوج!
+      </div>
+      <button id="startBtn">🚀 ابدأ اللعبة</button>
+    </div>
+    
+    <div id="hud">
+      <div class="hud-item">
+        <div>النقاط: <span id="currentScore">0</span></div>
+      </div>
+      <div class="hud-item level-indicator">
+        <div>المستوى: <span id="currentLevel">1</span></div>
+      </div>
+      <div class="hud-item">
+        <div>أفضل نتيجه: <span id="bestScore">0</span></div>
+      </div>
+    </div>
+    
+    <div id="overlay">
+      <div id="gameOverText">🎮 انتهت اللعبة!</div>
+      <div id="finalScoreText"></div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button id="restartBtn">🔄 العب مرة أخرى</button>
+        <button id="menuBtn">🏠 القائمة الرئيسية</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const startScreen = document.getElementById('startScreen');
+    const hud = document.getElementById('hud');
+    
+    // عناصر الواجهة
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const currentScoreEl = document.getElementById('currentScore');
+    const bestScoreEl = document.getElementById('bestScore');
+    const currentLevelEl = document.getElementById('currentLevel');
+    const finalScoreText = document.getElementById('finalScoreText');
+
+    // إعدادات اللعبة
+    const gravity = 0.7;
+    const jumpStrength = -14;
+    let gameSpeed = 5;
+    let obstacleFreq = 2000;
+    
+    // حالة اللعبة
+    let gameState = 'menu'; // menu, playing, gameOver
+    let score = 0;
+    let level = 1;
+    let bestScore = 0;
+    let clouds = [];
+    let animationId = null;
+
+    // تحميل أفضل نتيجه نتيجة
+    try {
+      bestScore = parseInt(localStorage.getItem('domerRunBest') || '0');
+    } catch(e) {
+      bestScore = 0;
+    }
+    bestScoreEl.textContent = bestScore;
+
+    // كائن اللاعب
+    const runner = {
+      x: 80,
+      y: 350,
+      width: 40,
+      height: 60,
+      vy: 0,
+      jumpCount: 0,
+      onGround: true,
+      isCollided: false
+    };
+
+    // مصفوفات العناصر
+    const obstacles = [];
+    let lastObstacleTime = 0;
+
+    // إنشاء السحب للخلفية
+    function createClouds() {
+      clouds = [];
+      for (let i = 0; i < 5; i++) {
+        clouds.push({
+          x: Math.random() * canvas.width,
+          y: 50 + Math.random() * 100,
+          size: 30 + Math.random() * 40,
+          speed: 0.5 + Math.random() * 1.5,
+          opacity: 0.3 + Math.random() * 0.4
+        });
+      }
+    }
+
+    // رسم السحب
+    function drawClouds() {
+      ctx.save();
+      clouds.forEach(cloud => {
+        ctx.globalAlpha = cloud.opacity;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.size * 1.2, cloud.y, cloud.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        cloud.x -= cloud.speed;
+        if (cloud.x + cloud.size * 1.5 < 0) {
+          cloud.x = canvas.width + cloud.size;
+        }
+      });
+      ctx.restore();
+    }
+
+    // رسم الأرض
+    function drawGround() {
+      const groundHeight = 90;
+      const groundY = canvas.height - groundHeight;
+      
+      // رسم الأرض
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(0, groundY, canvas.width, groundHeight);
+      
+      // رسم العشب
+      ctx.fillStyle = '#228B22';
+      ctx.fillRect(0, groundY, canvas.width, 20);
+    }
+
+    // إنشاء عقبة
+    function createObstacle() {
+      const height = 40 + Math.random() * 60;
+      const groundY = canvas.height - 90;
+      
+      obstacles.push({
+        x: canvas.width,
+        y: groundY - height,
+        width: 35,
+        height: height,
+        passed: false
+      });
+    }
+
+    // رسم اللاعب
+    function drawRunner() {
+      ctx.save();
+      
+      // الجسم
+      ctx.fillStyle = runner.isCollided ? '#95A5A6' : '#FF6B6B';
+      ctx.fillRect(runner.x, runner.y, runner.width, runner.height);
+      
+      // الرأس
+      ctx.fillStyle = '#F39C12';
+      ctx.fillRect(runner.x + 5, runner.y - 15, runner.width - 10, 15);
+      
+      // العيون
+      ctx.fillStyle = runner.isCollided ? '#E74C3C' : '#2C3E50';
+      ctx.fillRect(runner.x + 10, runner.y - 10, 5, 5);
+      ctx.fillRect(runner.x + 25, runner.y - 10, 5, 5);
+      
+      // الأرجل (متحركة)
+      if (!runner.onGround) {
+        ctx.fillStyle = '#34495E';
+        ctx.fillRect(runner.x + 5, runner.y + runner.height, 8, 15);
+        ctx.fillRect(runner.x + 27, runner.y + runner.height, 8, 15);
+      }
+      
+      ctx.restore();
+    }
+
+    // رسم العقبات
+    function drawObstacles() {
+      ctx.fillStyle = '#34495E';
+      obstacles.forEach(obs => {
+        // رسم العقبة
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        
+        // إضافة تفاصيل للعقبة
+        ctx.fillStyle = '#2C3E50';
+        ctx.fillRect(obs.x + 2, obs.y + 2, obs.width - 4, obs.height - 4);
+        ctx.fillStyle = '#34495E';
+      });
+    }
+
+    // تحديث اللاعب
+    function updateRunner() {
+      const groundY = canvas.height - 90 - runner.height;
+      
+      // تطبيق الجاذبية
+      runner.vy += gravity;
+      runner.y += runner.vy;
+      
+      // فحص الأرض
+      if (runner.y >= groundY) {
+        runner.y = groundY;
+        runner.vy = 0;
+        runner.onGround = true;
+        runner.jumpCount = 0;
+      } else {
+        runner.onGround = false;
+      }
+    }
+
+    // تحديث اللعبة
+    function updateGame() {
+      // تحديث العقبات
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= gameSpeed;
+        
+        // حساب النقاط
+        if (!obs.passed && obs.x + obs.width < runner.x) {
+          obs.passed = true;
+          score += 10;
+          updateScore();
+        }
+        
+        // فحص التصادم
+        if (!runner.isCollided && 
+            runner.x < obs.x + obs.width && 
+            runner.x + runner.width > obs.x && 
+            runner.y < obs.y + obs.height && 
+            runner.y + runner.height > obs.y) {
+          gameOver();
+          return;
+        }
+        
+        // إزالة العقبات الخارجة
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+        }
+      }
+      
+      // إنشاء عقبات جديدة
+      const currentTime = Date.now();
+      if (currentTime - lastObstacleTime > obstacleFreq) {
+        createObstacle();
+        lastObstacleTime = currentTime;
+      }
+      
+      // تحديث الصعوبة
+      const newLevel = Math.floor(score / 200) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        gameSpeed += 0.5;
+        obstacleFreq = Math.max(1200, obstacleFreq - 100);
+        currentLevelEl.textContent = level;
+      }
+    }
+
+    // تحديث النقاط
+    function updateScore() {
+      currentScoreEl.textContent = score;
+    }
+
+    // انتهاء اللعبة
+    function gameOver() {
+      gameState = 'gameOver';
+      runner.isCollided = true;
+      
+      // إيقاف الحلقة
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      
+      // حفظ أفضل نتيجه نتيجة
+      if (score > bestScore) {
+        bestScore = score;
+        try {
+          localStorage.setItem('domerRunBest', bestScore.toString());
+        } catch(e) {
+          console.log('لا يمكن حفظ النتيجة');
+        }
+        bestScoreEl.textContent = bestScore;
+      }
+      
+      // عرض النتائج
+      finalScoreText.innerHTML = `
+        <div style="font-size: 24px; margin: 10px 0;">نقاطك النهائية: ${score}</div>
+        <div style="font-size: 18px; margin: 10px 0;">المستوى الذي وصلت إليه: ${level}</div>
+        ${score === bestScore ? '<div style="color: #FFD700; font-size: 20px;">🎉 رقم قياسي جديد!</div>' : ''}
+      `;
+      
+      // عرض شاشة انتهاء اللعبة
+      setTimeout(() => {
+        overlay.classList.add('show');
+      }, 1000);
+    }
+
+    // بدء اللعبة
+    function startGame() {
+      gameState = 'playing';
+      
+      // إخفاء القائمة وإظهار HUD
+      startScreen.classList.add('hide');
+      hud.classList.add('show');
+      
+      // إعادة تعيين المتغيرات
+      score = 0;
+      level = 1;
+      gameSpeed = 5;
+      obstacleFreq = 2000;
+      
+      // إعادة تعيين اللاعب
+      runner.y = canvas.height - 90 - runner.height;
+      runner.vy = 0;
+      runner.jumpCount = 0;
+      runner.onGround = true;
+      runner.isCollided = false;
+      
+      // مسح العقبات
+      obstacles.length = 0;
+      
+      // تحديث الواجهة
+      updateScore();
+      currentLevelEl.textContent = level;
+      
+      lastObstacleTime = Date.now();
+      
+      // بدء حلقة اللعبة
+      gameLoop();
+    }
+
+    // إعادة تشغيل اللعبة
+    function restartGame() {
+      overlay.classList.remove('show');
+      startGame();
+    }
+
+    // العودة للقائمة الرئيسية
+    function backToMenu() {
+      gameState = 'menu';
+      
+      // إيقاف الحلقة
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      
+      // إخفاء الشاشات وإظهار القائمة
+      overlay.classList.remove('show');
+      hud.classList.remove('show');
+      startScreen.classList.remove('hide');
+      
+      // بدء حلقة القائمة
+      menuLoop();
+    }
+
+    // الحلقة الرئيسية للعبة
+    function gameLoop() {
+      if (gameState !== 'playing') return;
+      
+      // مسح الشاشة
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // رسم العناصر
+      drawClouds();
+      drawGround();
+      drawRunner();
+      drawObstacles();
+      
+      // تحديث اللعبة
+      updateRunner();
+      updateGame();
+      
+      // استمرار الحلقة
+      if (gameState === 'playing') {
+        animationId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // حلقة القائمة الرئيسية
+    function menuLoop() {
+      if (gameState !== 'menu') return;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawClouds();
+      drawGround();
+      
+      animationId = requestAnimationFrame(menuLoop);
+    }
+
+    // التحكم بالقفز
+    function handleJump() {
+      if (gameState === 'playing' && runner.jumpCount < 2) {
+        runner.vy = jumpStrength;
+        runner.jumpCount++;
+        runner.onGround = false;
+      }
+    }
+
+    // أحداث لوحة المفاتيح
+    document.addEventListener('keydown', (e) => {
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && gameState === 'playing') {
+        e.preventDefault();
+        handleJump();
+      }
+    });
+
+    // أحداث اللمس للهواتف
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (gameState === 'playing') {
+        handleJump();
+      }
+    });
+
+    // منع التمرير على الهاتف
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // أحداث الأزرار
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', restartGame);
+    menuBtn.addEventListener('click', backToMenu);
+
+    // تهيئة اللعبة
+    function init() {
+      createClouds();
+      bestScoreEl.textContent = bestScore;
+      
+      // بدء حلقة القائمة الرئيسية
+      menuLoop();
+    }
+
+    // بدء اللعبة عند تحميل الصفحة
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
